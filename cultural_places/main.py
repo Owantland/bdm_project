@@ -5,7 +5,7 @@ import json
 import time
 
 
-def main():
+def dwnld_bcrn():
     offset = 0
     url = f'https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search?resource_id=31431b23-d5b9-42b8-bcd0-a84da9d8c7fa&offset={offset}'
     r = requests.get(url).json()
@@ -123,5 +123,51 @@ def lec_post(results):
             })
     csvfile.close()
 
+
+def dwnld_madrid():
+    # URLs for datasets
+    url_monument = 'https://datos.madrid.es/egob/catalogo/208844-0-monumentos-edificios.csv'
+    url_museums = 'https://datos.madrid.es/egob/catalogo/201132-0-museos.csv'
+    url_theaters = 'https://datos.madrid.es/egob/catalogo/208862-7650046-ocio_salas.csv'
+    url_cinemas = 'https://datos.madrid.es/egob/catalogo/208862-7650164-ocio_salas.csv'
+    url_concert_halls = 'https://datos.madrid.es/egob/catalogo/208862-7650180-ocio_salas.csv'
+
+    # Download datasets
+    with open("madrid_monuments.csv", 'wb') as f, \
+            requests.get(url_monument, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_museums.csv", 'wb') as f, \
+            requests.get(url_museums, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_theaters.csv", 'wb') as f, \
+            requests.get(url_theaters, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_cinemas.csv", 'wb') as f, \
+            requests.get(url_cinemas, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_concert_halls.csv", 'wb') as f, \
+            requests.get(url_concert_halls, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+
+
+
+def main():
+    dwnld_bcrn()
+    dwnld_madrid()
 
 main()
