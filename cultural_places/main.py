@@ -5,7 +5,7 @@ import json
 import time
 
 
-def main():
+def dwnld_bcrn():
     offset = 0
     url = f'https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search?resource_id=31431b23-d5b9-42b8-bcd0-a84da9d8c7fa&offset={offset}'
     r = requests.get(url).json()
@@ -123,5 +123,82 @@ def lec_post(results):
             })
     csvfile.close()
 
+
+def dwnld_madrid():
+    # URLs for datasets
+    url_monument = 'https://datos.madrid.es/egob/catalogo/208844-0-monumentos-edificios.csv'
+    url_museums = 'https://datos.madrid.es/egob/catalogo/201132-0-museos.csv'
+    url_theaters = 'https://datos.madrid.es/egob/catalogo/208862-7650046-ocio_salas.csv'
+    url_cinemas = 'https://datos.madrid.es/egob/catalogo/208862-7650164-ocio_salas.csv'
+    url_concert_halls = 'https://datos.madrid.es/egob/catalogo/208862-7650180-ocio_salas.csv'
+
+    # Download datasets
+    with open("madrid_monuments.csv", 'wb') as f, \
+            requests.get(url_monument, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_museums.csv", 'wb') as f, \
+            requests.get(url_museums, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_theaters.csv", 'wb') as f, \
+            requests.get(url_theaters, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_cinemas.csv", 'wb') as f, \
+            requests.get(url_cinemas, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("madrid_concert_halls.csv", 'wb') as f, \
+            requests.get(url_concert_halls, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+
+def dwnld_paris():
+    url_museums = 'https://data.culture.gouv.fr/api/explore/v2.1/catalog/datasets/musees-de-france-base-museofile/exports/csv?delimiter=%3B&list_separator=%2C&quote_all=false&with_bom=true'
+    url_monuments = 'https://data.culture.gouv.fr/api/explore/v2.1/catalog/datasets/musees-de-france-base-museofile/exports/csv?delimiter=%3B&list_separator=%2C&quote_all=false&with_bom=true'
+    url_cultural_places = 'https://tabular-api.data.gouv.fr/api/resources/ae3fc35e-604f-4b2e-85fd-f5354bace2c0/data/?page=2'
+
+    # Download datasets
+    with open("paris_museums.csv", 'wb') as f, \
+            requests.get(url_museums, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    with open("paris_monuments.csv", 'wb') as f, \
+            requests.get(url_monuments, stream=True) as r:
+        for line in r.iter_lines():
+            f.write(line + '\n'.encode())
+        f.close()
+
+    while True:
+        r = requests.get(url_cultural_places).json()
+        data = r['data']
+
+        with open("paris_cultural_places.json", "a") as outfile:
+            json.dump(r, outfile)
+            outfile.close()
+
+        # Find the next page of data
+        url_cultural_places = r["links"]['next']
+        if url_cultural_places is None:
+            break
+
+
+def main():
+    dwnld_bcrn()
+    dwnld_madrid()
+    dwnld_paris()
 
 main()
