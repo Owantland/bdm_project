@@ -372,7 +372,8 @@ def save_json(res, filename):
         json.dump(res, file)
 
 
-def import_accomodation_extra_info(client):
+def import_accomodation_extra_info():
+    client = azure_connection()
     accomodation_endpoint = "https://booking-com15.p.rapidapi.com/api/v1/hotels/searchHotels"
     weather_endpoint = f'https://api.open-meteo.com/v1/forecast'
 
