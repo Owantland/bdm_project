@@ -422,8 +422,8 @@ def import_accomodation_extra_info():
                     'end_date': ''
                     }
 
-    start = datetime.strptime('2025-05-28', "%Y-%m-%d")
-    end = datetime.strptime('2025-12-31', "%Y-%m-%d")
+    start = datetime.strptime('2025-06-05', "%Y-%m-%d")
+    end = datetime.strptime('2025-06-10', "%Y-%m-%d")
     last_city = 'Rome'
     try:
         for single_date in tqdm([start + i * delta for i in range((end - start).days + 1)]):
