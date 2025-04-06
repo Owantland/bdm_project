@@ -1,3 +1,7 @@
 accomodation/
 accomodation_images/
 weather/
+.DS_Store
+*.csv
+*.env
+.env
