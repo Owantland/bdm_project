@@ -1,7 +1,11 @@
 accomodation/
+trusted_accomodation/
+trusted_weather/
 accomodation_images/
 weather/
 .DS_Store
 *.csv
 *.env
 .env
+.json
+.csv
