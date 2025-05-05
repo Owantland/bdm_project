@@ -1,7 +1,7 @@
-accomodation/
-trusted_accomodation/
+accommodation/
+trusted_accommodation/
 trusted_weather/
-accomodation_images/
+accommodation_images/
 weather/
 .DS_Store
 *.csv
