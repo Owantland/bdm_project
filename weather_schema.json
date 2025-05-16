@@ -1,1 +1,1 @@
-{"time": ["str"], "temperature_2m": ["float"], "rain": ["float"], "snowfall": ["float"], "precipitation": ["float"], "cloud_cover": ["int"], "wind_speed_10m": ["float"], "sunshine_duration": ["float"]}
+{"timestamp": "str", "time": "str", "temperature_2m": "float", "rain": "float", "snowfall": "float", "precipitation": "float", "cloud_cover": "int", "wind_speed_10m": "float", "sunshine_duration": "float"}
