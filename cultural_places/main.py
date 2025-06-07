@@ -554,5 +554,6 @@ def main():
 
     get_and_sync_cultural_places(client, filenames)
 
+
 if __name__ == '__main__':
     main()
