@@ -502,7 +502,7 @@ def get_and_sync_accommodation(
                             data_bytes = fs.get_file_client(img_path).download_file().readall()
                             emb = image_bytes_to_embedding(data_bytes)
                             coll = get_or_create_collection(collection_name="accommodation_images", dim=len(emb))
-                            insert_embedding(coll, id=hash, vector=emb)
+                            #insert_embedding(coll, id=hash, vector=emb)
                             _append_to_backfill_log(img_path)
 
             exploitation_df = spark.read.json(spark.sparkContext.parallelize([json.dumps(d) for d in docs]))
@@ -690,7 +690,7 @@ def backfill_exploitation_zone(
                 data_bytes = dl_client.get_file_client(full_path).download_file().readall()
                 emb = image_bytes_to_embedding(data_bytes)
                 coll = get_or_create_collection(collection_name="accommodation_images", dim=len(emb))
-                insert_embedding(coll, id=image_id, vector=emb)
+                #insert_embedding(coll, id=image_id, vector=emb)
             
             _append_to_backfill_log(log_key)
 
@@ -766,8 +766,8 @@ if __name__ == '__main__':
 
 
     # parameters
-    start = datetime.strptime('2025-07-03', '%Y-%m-%d')
-    end = datetime.strptime('2025-07-04', '%Y-%m-%d')
+    start = datetime.strptime('2025-07-05', '%Y-%m-%d')
+    end = datetime.strptime('2025-07-06', '%Y-%m-%d')
     cities = list(destination_ids.keys()) 
 
     # sync on the fly
