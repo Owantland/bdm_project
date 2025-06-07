@@ -23,8 +23,6 @@ import findspark
 from sqlalchemy import create_engine, inspect, text
 import io
 from PIL import Image
-import torch
-import clip
 from pymilvus import (
     connections,
     FieldSchema, CollectionSchema, DataType, Collection, utility
