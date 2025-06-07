@@ -769,10 +769,7 @@ if __name__ == '__main__':
     start = datetime.strptime('2025-07-05', '%Y-%m-%d')
     end = datetime.strptime('2025-07-06', '%Y-%m-%d')
     cities = list(destination_ids.keys()) 
-
-    # sync on the fly
-    get_and_sync_accommodation(file_system_client, spark, start, end, destination_ids, accommodation_query, headers, 'accommodation_schema.json')
-    backfill_trusted_zone(file_system_client, 'accommodation/', 'accommodation_schema.json')
-    backfill_trusted_zone(file_system_client, 'accommodation_images/')
-    backfill_exploitation_zone(file_system_client, spark, 'accommodation')
-    backfill_exploitation_zone(file_system_client, spark, 'accommodation_images')
+    
+    get_and_sync_weather(file_system_client, spark, start, end, destination_coords, weather_query, 'weather_schema.json')
+    backfill_trusted_zone(file_system_client, 'weather/', 'weather_schema.json')
+    backfill_exploitation_zone(file_system_client, spark, 'weather')
