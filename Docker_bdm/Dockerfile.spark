@@ -1,0 +1,15 @@
+FROM bitnami/spark:3.5.3
+USER root
+
+ENV SHARED_SPARK_DIR=/spark-shared
+RUN apt-get update && \
+    apt-get install -y wget && \
+    mkdir -p /spark-shared/jars && \
+    wget -P /spark-shared/jars https://jdbc.postgresql.org/download/postgresql-42.7.4.jar
+
+COPY requirements_spark.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements_spark.txt
+
+
+
+

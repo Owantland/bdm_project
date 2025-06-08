@@ -1,0 +1,16 @@
+
+
+FROM apache/airflow:3.0.1
+
+USER root
+RUN apt-get update && apt-get install -y procps
+
+USER airflow
+ENV PATH="/opt/bitnami/spark/bin:/home/airflow/.local/bin:$PATH"
+ENV SPARK_MASTER_URL=spark://spark-master:7077
+
+COPY ./requirements_airflow.txt /
+RUN pip install --no-cache-dir -r /requirements_airflow.txt
+
+COPY --chown=airflow:root ./dags /opt/airflow/dags
+
