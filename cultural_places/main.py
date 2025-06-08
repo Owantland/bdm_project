@@ -1,5 +1,7 @@
 import os
 import json
+
+from numpy.distutils.conv_template import header
 from tqdm import tqdm
 import requests
 from pyspark.sql import SparkSession
@@ -8,6 +10,8 @@ import numpy as np
 from azure.storage.filedatalake import DataLakeServiceClient
 import pandas as pd
 import csv
+from neo4j import GraphDatabase
+from session_helper_neo4j import create_session, clean_session
 
 """
     CONSTANTS
@@ -28,6 +32,9 @@ PRS_MON_PATH = os.path.join('data', 'paris_monuments.csv')
 PRS_CUL_PATH = os.path.join('data', 'paris_cultural_places.json')
 # Cultural places
 CUL_PLAC_PATH = os.path.join('data', 'cultural_places')
+# Neo4J CSV paths
+N4J_PATH = os.path.join('data', 'sdm_analysis')
+
 # List of cities
 filenames = ["brcn_cultural_places.csv", "madrid_monuments.csv", "madrid_museums.csv", "madrid_theaters.csv", "madrid_cinemas.csv",
              "madrid_concert_halls.csv", "paris_museums.csv", "paris_monuments.csv","paris_cultural_places.json"]
@@ -40,7 +47,9 @@ trusted_path = f"trusted_zone/cultural_places/"
 """
     FUNCTIONS
 """
-# Landing Zone Functions
+"""
+    Landing Zone Functions
+"""
 # Downloads and processes data from the Barcelona Opendata portal through the use of their API
 def dwnld_brcn(client):
     offset = 0
@@ -299,7 +308,9 @@ def dwnld_paris(client):
     os.remove(PRS_CUL_PATH)
 
 
-# Helper Functions
+"""
+    Helper Functions
+"""
 # Defines the settings for the connection to the azure data lake
 def azure_connection():
     storage_container_name = 'bdmcontainerp1'
@@ -341,7 +352,9 @@ def file_exists(fs_client, path: str) -> bool:
         return False
 
 
-# Cleanup functions for trusted zone processing
+"""
+    Trusted Zone Functions
+"""
 def clean_line(line):
     l = line.decode('ISO-8859-1')
     l = l.replace('"', '')
@@ -387,7 +400,7 @@ def get_y_coordinates(cord_col):
 
 def clean_zip(code):
     code = str(code)
-    if len(code) < 5:
+    while len(code) < 5:
         code = "0" + code
     return code
 
@@ -428,7 +441,6 @@ def clean_df(df, zip_col, text_cols:list, cord_cols:list, city):
     return df
 
 
-# Trusted Zone functions
 def upload_cultural_places(client, path):
     for (root, dirs, file) in os.walk(path):
         for f in file:
@@ -444,7 +456,8 @@ def upload_cultural_places(client, path):
 
 def process_cultural_places():
     col_names = ["ID", "Name", "zip_code",
-                 "address", "x_coordinate", "y_coordinate"]
+                 "address", "x_coordinate",
+                 "y_coordinate", "city"]
 
     # BCR
     df = ps.read_csv(BRCN_PATH)
@@ -455,13 +468,16 @@ def process_cultural_places():
     df = df[cols]
     df_bcr = clean_df(df, "addresses_zip_code", text_cols, cord_cols, 'Barcelona')
     df_bcr = df_bcr[["_id", "name", "zip_code",
-            "addresses_road_name", "geo_epgs_25831_x", "geo_epgs_25831_y"]]
+                     "addresses_road_name", "geo_epgs_25831_x",
+                     "geo_epgs_25831_y", "city"]]
     df_bcr.rename(columns={"_id": col_names[0],
                            "name": col_names[1],
                            "zip_code": col_names[2],
                            "addresses_road_name": col_names[3],
                            "geo_epgs_25831_x": col_names[4],
-                           "geo_epgs_25831_y":col_names[5]}, inplace=True)
+                           "geo_epgs_25831_y":col_names[5],
+                           "city":col_names[6]}, inplace=True)
+    print(df_bcr.head(5))
 
     # Madrid
     madrid_dfs = []
@@ -474,13 +490,16 @@ def process_cultural_places():
         df = df[cols]
         df = clean_df(df, "CODIGO-POSTAL", text_cols, cord_cols, "Madrid")
         df = df[["PK", "NOMBRE", "zip_code",
-                "NOMBRE-VIA", "COORDENADA-X", "COORDENADA-Y"]]
+                 "NOMBRE-VIA", "COORDENADA-X",
+                 "COORDENADA-Y", "city"]]
         df.rename(columns={"PK": col_names[0],
                            "NOMBRE": col_names[1],
                            "zip_code": col_names[2],
                            "NOMBRE-VIA": col_names[3],
                            "COORDENADA-X": col_names[4],
-                           "COORDENADA-Y": col_names[5]}, inplace=True)
+                           "COORDENADA-Y": col_names[5],
+                           "city": col_names[6]}, inplace=True)
+        print(df.head(5))
         madrid_dfs.append(df)
 
     #Paris
@@ -496,19 +515,174 @@ def process_cultural_places():
     df.dropna(inplace=True)
     df = df.drop(['coordonnees'], axis=1)
     df = clean_df(df, "code_postal", text_cols, cord_cols, "Paris")
-    df_paris = df[["identifiant", "nom_officiel", "zip_code", "adresse","x_coordinates","y_coordinates"]]
+    df_paris = df[["identifiant", "nom_officiel", "zip_code", "adresse","x_coordinates","y_coordinates", "city"]]
     df_paris.rename(columns={"identifiant": col_names[0],
                              "nom_officiel": col_names[1],
                              "zip_code": col_names[2],
                              "adresse": col_names[3],
                              "x_coordinates": col_names[4],
-                             "y_coordinates": col_names[5]}, inplace=True)
+                             "y_coordinates": col_names[5],
+                             "city": col_names[6]}, inplace=True)
+    print(df_paris.head(5))
 
     df = ps.concat([df_bcr, df_paris])
     for file in madrid_dfs:
         df = ps.concat([df, file])
 
     df.to_csv(CUL_PLAC_PATH)
+
+
+"""
+    Exploitation Zone Functions
+"""
+def download_files_from_directory(file_system_client, directory_name, destination_path):
+    paths = file_system_client.get_paths(path=directory_name)
+    for path in paths:
+        f_name = path.name
+        file_client = file_system_client.get_file_client(path.name)
+        sep = f_name.rfind("/") + 1
+        f_name = f_name[sep::]
+
+        with  open(destination_path + "/" + f_name, 'wb') as local_file:
+            download = file_client.download_file()
+            local_file.write(download.readall())
+            local_file.close()
+
+
+def download_to_local(fs, directory_name: str, destination_path: str):
+    directory_client = fs.get_directory_client(directory_name)
+    os.makedirs(destination_path, exist_ok=True)
+    download_files_from_directory(fs, directory_name, destination_path)
+
+
+def clean_accommodations():
+    cols = ["property_id", "property_latitude", "property_longitude",
+            "property_name", "city_code_name", "property_postalcode"]
+    path = N4J_PATH + "/accommodation.csv"
+    path2 = N4J_PATH + "/accommodation_fix.csv"
+
+    df = pd.read_csv(path)
+
+    df = df[cols]
+    df = df.drop_duplicates()
+    df["property_postalcode"] = df["property_postalcode"].apply(clean_zip)
+
+    df.to_csv(path2)
+
+# Neo4J processes
+# Load Nodes
+def load_bcn_zips(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/barcelona_codes.csv' AS line
+        CREATE (:ZIPCODE{
+            ZIPCODE: line.POSTAL_CODE,
+            CITY: "Barcelona"
+        })
+        """
+    )
+
+def load_mad_zips(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/madrid_codes.csv' AS line
+        CREATE (:ZIPCODE{
+            ZIPCODE: line.POSTAL_CODE,
+            CITY: "Madrid"
+        })
+        """
+    )
+
+def load_prs_zips(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/paris_codes.csv' AS line
+        CREATE (:ZIPCODE{
+            ZIPCODE: line.POSTAL_CODE,
+            CITY: "Paris"
+        })
+        """
+    )
+
+def load_node_accommodations(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/accommodation.csv' AS line
+        CREATE (:ACCOMMODATION {
+            ID: line.property_id,
+            NAME: line.property_name,
+            X_POS: line.property_longitude,
+            Y_POS: line.property_latitude,
+            CITY: line.city_code_name
+        })
+        """
+    )
+
+# Load Edges
+def load_rel_bcn_zip(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/barcelona_distances.csv' AS line
+        MATCH (p1:ZIPCODE {ZIPCODE: line.COD_POSTAL_1})
+        MATCH (p2:ZIPCODE {ZIPCODE: line.COD_POSTAL_2})
+        CREATE (p1)-[:ROUTE {
+            Distance: toFloat(line.distance)
+        }]->(p2)
+        """
+    )
+
+def load_rel_mad_zip(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/madrid_distances.csv' AS line
+        MATCH (p1:ZIPCODE {ZIPCODE: line.COD_POSTAL_1})
+        MATCH (p2:ZIPCODE {ZIPCODE: line.COD_POSTAL_2})
+        CREATE (p1)-[:ROUTE {
+            Distance: toFloat(line.distance)
+        }]->(p2)
+        """
+    )
+
+def load_rel_prs_zip(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/paris_distances.csv' AS line
+        MATCH (p1:ZIPCODE {ZIPCODE: line.COD_POSTAL_1})
+        MATCH (p2:ZIPCODE {ZIPCODE: line.COD_POSTAL_2})
+        CREATE (p1)-[:ROUTE {
+            Distance: toFloat(line.distance)
+        }]->(p2)
+        """
+    )
+
+def load_rel_acom_zip(session):
+    session.run(
+        """
+        LOAD CSV WITH HEADERS FROM 'file:///data/accommodation_zips.csv' AS line
+        MATCH (p1:ACCOMMODATION {ID: line.property_id})
+        MATCH (p2:ZIPCODE {ZIPCODE: line.property_postalcode})
+        CREATE (p1)-[:LOCATEDIN]->(p2)
+        """
+    )
+
+def prepare_csv():
+    session = create_session()
+    session = clean_session(session)
+
+    print("Loading nodes...")
+    session.execute_write(load_node_accommodations)
+    session.execute_write(load_bcn_zips)
+    session.execute_write(load_mad_zips)
+    session.execute_write(load_prs_zips)
+
+    print("Loading edges...")
+    session.execute_write(load_rel_bcn_zip)
+    session.execute_write(load_rel_mad_zip)
+    session.execute_write(load_rel_prs_zip)
+    session.execute_write(load_rel_acom_zip)
+
+    session.close()
+
 
 
 def get_and_sync_cultural_places(fs, filenames):
@@ -521,7 +695,7 @@ def get_and_sync_cultural_places(fs, filenames):
         """
             Landing Zone
         """
-        # If file exists in landing zone mone on, else reprocess
+        # If file exists in landing zone move on, else reprocess
         if file_exists(fs, lp):
             file_client = fs.get_file_client(lp)
             with open(file_path, mode="wb") as local_file:
@@ -538,14 +712,14 @@ def get_and_sync_cultural_places(fs, filenames):
     """
         Trusted Zone
     """
-    # If file exists in the trusted zone move on, else reprocess
-    tp = trusted_path + 'cultural_places.csv'
+    # If file exists in the trusted zone download it for use in future operations
+    tp = trusted_path + 'cultural_places_csv'
     if file_exists(fs, tp):
+        # download_to_local(fs, tp, CUL_PLAC_PATH)
         pass
     else:
         process_cultural_places()
         upload_cultural_places(fs, CUL_PLAC_PATH)
-
 
 
 def main():
@@ -553,6 +727,9 @@ def main():
     spark = spark_connection()
 
     get_and_sync_cultural_places(client, filenames)
+
+    # Perform loading into Neo4J for graph data analysis
+    prepare_csv()
 
 if __name__ == '__main__':
     main()
